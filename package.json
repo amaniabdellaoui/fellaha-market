@@ -1,0 +1,23 @@
+{
+  "name": "fellaha-market",
+  "version": "1.0.0",
+  "description": "FellahaMarket – Tunisian agricultural marketplace",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --no-coverage"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.24.0",
+    "@babel/preset-react": "^7.23.3",
+    "@testing-library/jest-dom": "^6.4.2",
+    "@testing-library/react": "^15.0.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  }
+}
