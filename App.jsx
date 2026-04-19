@@ -53,6 +53,452 @@ const api={
   fav:{get:async uid=>{await ld();return _F.filter(f=>f.uid===uid).map(f=>f.lid);},tog:async(uid,lid)=>{await ld();const i=_F.findIndex(f=>f.uid===uid&&f.lid===lid);if(i>=0)_F.splice(i,1);else _F.push({uid,lid});await sv();return _F.filter(f=>f.uid===uid).map(f=>f.lid);}},
 };
 
-export { T, GOVS, CATS, TX_T, U_T, UNITS, D_U, D_L, D_R, D_M, api, mkFb };
+// CONTEXT
+const Ctx=createContext();
+function Prov({children}){
+  const[pg,sPg]=useState("browse");const[sL,sSL]=useState(null);const[sU,sSU]=useState(null);const[fl,sFl]=useState({});
+  const[mob,sMob]=useState(window.innerWidth<768);const[usr,sUsr]=useState(null);const[auth,sAuth]=useState(false);
+  const[toast,sToast]=useState(null);const[dv,sDv]=useState(0);const[cTo,sCTo]=useState(null);const[cLid,sCLid]=useState(null);
+  const[lang,sLang]=useState("en");const[notifs,sNotifs]=useState({area:true,msg:true,price:false});
+  const[favs,sFavs]=useState([]);
+  useEffect(()=>{const h=()=>sMob(window.innerWidth<768);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
+  useEffect(()=>{(async()=>{try{const s=await window.storage.get("fm3_s");if(s){const u=JSON.parse(s.value);sUsr(u);const f=await api.fav.get(u.id);sFavs(f);}const lg=await window.storage.get("fm3_lang");if(lg)sLang(lg.value);}catch(e){}})();},[]);
+  const t=useCallback(k=>T[lang]?.[k]||T.en[k]||k,[lang]);
+  const dir=lang==="ar"?"rtl":"ltr";
+  const nav=useCallback((p,d)=>{if(d?.lid)sSL(d.lid);if(d?.uid)sSU(d.uid);if(d?.fl)sFl(d.fl);if(d?.cTo)sCTo(d.cTo);if(d?.cLid)sCLid(d.cLid);sPg(p);window.scrollTo(0,0);},[]);
+  const login=useCallback(async u=>{sUsr(u);try{await window.storage.set("fm3_s",JSON.stringify(u));}catch(e){};api.fav.get(u.id).then(sFavs);},[]);
+  const logout=useCallback(async()=>{sUsr(null);sFavs([]);try{await window.storage.delete("fm3_s");}catch(e){}sPg("home");},[]);
+  const nfy=useCallback((m,tp="ok")=>{sToast({m,tp});setTimeout(()=>sToast(null),3000);},[]);
+  const rfr=useCallback(()=>sDv(v=>v+1),[]);
+  const rqA=useCallback(()=>{if(!usr){sAuth(true);return false;}return true;},[usr]);
+  const setLang=useCallback(async l=>{sLang(l);try{await window.storage.set("fm3_lang",l);}catch(e){}},[]);
+  const togFav=useCallback((lid)=>{if(!usr)return;api.fav.tog(usr.id,lid).then(sFavs);},[usr]);
+  return <Ctx.Provider value={{pg,nav,sL,sU,fl,sFl,mob,usr,login,logout,auth,sAuth,toast,nfy,dv,rfr,rqA,cTo,cLid,t,lang,setLang,dir,notifs,favs,togFav}}>{children}</Ctx.Provider>;
+}
+const useA=()=>useContext(Ctx);
+
+// ICONS & STYLES
+const I={
+  Home:()=><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>,
+  Search:()=><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>,
+  Plus:()=><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>,
+  User:()=><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  Back:()=><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>,
+  Pin:()=><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  Phone:()=><svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6A19.79 19.79 0 012.12 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.13.96.36 1.9.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0122 16.92z"/></svg>,
+  WA:()=><svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366"><path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.26-.46-2.4-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51-.17 0-.37-.01-.57-.01-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.87 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35m-5.42 7.4h0a9.87 9.87 0 01-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 01-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 012.89 6.99c0 5.45-4.44 9.88-9.89 9.88m8.41-18.3A11.82 11.82 0 0012.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 005.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.16-3.48-8.41z"/></svg>,
+  Eye:()=><svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>,
+  Grid:()=><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
+  Filter:()=><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>,
+  X:()=><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>,
+  Rt:()=><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>,
+  Chat:()=><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z"/></svg>,
+  Out:()=><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>,
+  Edit:()=><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  Trash:()=><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
+  Send:()=><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>,
+  Shield:()=><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  Gear:()=><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>,
+  Heart:(p)=><svg width="20" height="20" fill={p?.filled?CL.dg:"none"} stroke={p?.filled?CL.dg:"currentColor"} strokeWidth="1.8" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>,
+  Star:()=><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>,
+  Crown:()=><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M2 20h20M4 16l2-12 6 6 6-6 2 12z"/></svg>,
+  Lock:()=><svg width="14" height="14" fill="none" stroke="#212529" strokeWidth="2" viewBox="0 0 24 24" opacity="0.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>,
+  Handshake:()=><span style={{fontSize:14,opacity:0.5}}>🤝</span>,
+  Gift:()=><svg width="14" height="14" fill="none" stroke="#212529" strokeWidth="2" viewBox="0 0 24 24" opacity="0.5"><rect x="3" y="8" width="18" height="4"/><path d="M12 8v13M3 12h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7z"/><path d="M12 8a4 4 0 00-4-4c-1.5 0-3 1-2 3M12 8a4 4 0 014-4c1.5 0 3 1 2 3"/></svg>,
+};
+const PT={fixed:{ic:()=><I.Lock/>,lb:"Fixed"},negotiable:{ic:()=><I.Handshake/>,lb:"Negotiable"},free:{ic:()=><I.Gift/>,lb:"Free"}};
+
+const bn=v=>{const x={display:"inline-flex",alignItems:"center",justifyContent:"center",gap:8,padding:"11px 20px",borderRadius:12,fontSize:14,fontWeight:600,cursor:"pointer",transition:"all .2s",border:"none",fontFamily:"inherit"};return v==="p"?{...x,background:`linear-gradient(135deg,${CL.ac},${CL.acH})`,color:"#fff",boxShadow:"0 2px 8px rgba(8,127,91,.25)"}:v==="o"?{...x,background:"transparent",color:CL.ac,border:`1.5px solid ${CL.ac}`}:v==="wa"?{...x,background:"#25D366",color:"#fff",boxShadow:"0 2px 8px rgba(37,211,102,.25)"}:v==="g"?{...x,background:"transparent",color:CL.tx2,padding:"8px 12px"}:v==="d"?{...x,background:CL.dg,color:"#fff"}:v==="purple"?{...x,background:`linear-gradient(135deg,${CL.purple},#9775FA)`,color:"#fff",boxShadow:"0 2px 8px rgba(112,72,232,.25)"}:x;};
+const bg=(a,c)=>({display:"inline-flex",alignItems:"center",padding:"4px 10px",borderRadius:20,fontSize:11,fontWeight:600,background:a,color:c});
+const tg={display:"inline-flex",alignItems:"center",gap:4,padding:"7px 14px",borderRadius:10,fontSize:13,background:CL.sfH,color:CL.tx2,border:`1px solid ${CL.bd}`,cursor:"pointer",transition:"all .15s"};
+const tgA={background:CL.acL,color:CL.ac,borderColor:CL.ac};
+const fi={width:"100%",padding:"12px 14px",borderRadius:12,border:`1.5px solid ${CL.bd}`,fontSize:14,fontFamily:"inherit",color:CL.tx,background:CL.sf,outline:"none",boxSizing:"border-box",transition:"border-color .2s"};
+
+// COMPONENTS
+function Stars({r,sz=14,int,onR}){const[h,sH]=useState(0);return <span style={{display:"inline-flex",alignItems:"center",gap:2}}>{[1,2,3,4,5].map(i=><svg key={i} width={sz} height={sz} fill={(int?(h||r):r)>=i?CL.st:"#DEE2E6"} viewBox="0 0 24 24" style={int?{cursor:"pointer",transition:"transform .1s"}:{}} onClick={()=>onR?.(i)} onMouseEnter={e=>{if(int){sH(i);e.currentTarget.style.transform="scale(1.2)";}}} onMouseLeave={e=>{if(int){sH(0);e.currentTarget.style.transform="scale(1)";}}}>< path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>)}{!int&&<span style={{fontSize:sz-1,color:CL.tx2,marginLeft:4,fontWeight:600}}>{r.toFixed(1)}</span>}</span>;}
+function Toast(){const{toast}=useA();if(!toast)return null;return <div style={{position:"fixed",top:20,left:"50%",transform:"translateX(-50%)",background:toast.tp==="err"?CL.dg:CL.ok,color:"#fff",padding:"12px 24px",borderRadius:12,fontSize:14,fontWeight:600,zIndex:2000,boxShadow:"0 8px 24px rgba(0,0,0,.2)",animation:"slideIn .3s ease"}}>{toast.m}</div>;}
+function Loading(){const{t}=useA();return <div style={{display:"flex",alignItems:"center",justifyContent:"center",padding:64,color:CL.tx3}}><div style={{textAlign:"center"}}><div style={{width:36,height:36,border:`3px solid ${CL.bdL}`,borderTopColor:CL.ac,borderRadius:"50%",animation:"spin .8s linear infinite",margin:"0 auto 12px"}}/><div style={{fontSize:14}}>{t("loading")}</div></div></div>;}
+
+function Cd({l,onClick}){const{usr,favs,togFav,rqA}=useA();const u=D_U.find(x=>x.id===l.uid)||{nm:"?"};const isFav=favs.includes(l.id);
+return <div style={{background:CL.sf,borderRadius:16,border:l.bst?`2px solid ${CL.st}`:`1px solid ${CL.bdL}`,overflow:"hidden",cursor:"pointer",transition:"all .25s",animation:"fadeUp .4s ease",boxShadow:l.bst?"0 0 0 1px rgba(245,159,0,.15)":"none"}} onClick={onClick} onMouseEnter={e=>{e.currentTarget.style.boxShadow=l.bst?"0 8px 30px rgba(245,159,0,.15)":"0 8px 30px rgba(0,0,0,.1)";e.currentTarget.style.transform="translateY(-4px)";}} onMouseLeave={e=>{e.currentTarget.style.boxShadow=l.bst?"0 0 0 1px rgba(245,159,0,.15)":"none";e.currentTarget.style.transform="none";}}>
+<div style={{position:"relative"}}>{l.imgs?.length>0?<Img src={l.imgs[0]} fb={l.fb} style={{width:"100%",height:200,objectFit:"cover",background:CL.bdL}}/>:<div style={{width:"100%",height:200,background:CL.acL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:40}}>📷</div>}
+{l.bst&&<span style={{position:"absolute",top:12,left:12,...bg("#FFF3BF","#E67700"),backdropFilter:"blur(8px)",gap:3,display:"inline-flex",alignItems:"center"}}>⚡ Promoted</span>}
+{!l.bst&&<span style={{position:"absolute",top:12,left:12,...bg(CL.acL,CL.acD),backdropFilter:"blur(8px)"}}>{CATS.find(c=>c.id===l.cat)?.icon} {l.sub}</span>}
+<span style={{position:"absolute",top:12,right:12,...bg("rgba(255,255,255,.9)",CL.wm),backdropFilter:"blur(8px)"}}>{l.tx}</span>
+<button onClick={e=>{e.stopPropagation();if(rqA())togFav(l.id);}} style={{position:"absolute",bottom:12,right:12,width:36,height:36,borderRadius:"50%",background:"rgba(255,255,255,.9)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"transform .2s",backdropFilter:"blur(8px)"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.15)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}><I.Heart filled={isFav}/></button>
+</div>
+<div style={{padding:"16px 18px"}}><h3 style={{fontSize:15,fontWeight:700,margin:"0 0 6px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:CL.tx}}>{l.tt}</h3><div style={{display:"flex",alignItems:"center",gap:4,color:CL.tx3,fontSize:13,marginBottom:10}}><I.Pin/>{l.ct}</div>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><span style={{display:"flex",alignItems:"center",gap:6,fontSize:20,fontWeight:800,color:CL.acD}}>{PT[l.pt||"fixed"].ic()}{l.pt==="free"?"Free":l.pr>0?l.pr.toLocaleString()+" DT"+(l.un||""):""}</span><span style={{display:"flex",alignItems:"center",gap:4,color:CL.tx3,fontSize:12}}><I.Eye/>{l.vw}</span></div>
+<div style={{display:"flex",alignItems:"center",gap:8,marginTop:12,paddingTop:12,borderTop:`1px solid ${CL.bdL}`}}><div style={{width:30,height:30,borderRadius:"50%",background:`linear-gradient(135deg,${CL.acL},${CL.acH}22)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:CL.ac}}>{u.nm.charAt(0)}</div><span style={{fontSize:13,color:CL.tx2,flex:1}}>{u.nm}</span>{u.vf&&<span style={{...bg(CL.acL,CL.ac),fontSize:10}}>✓</span>}</div></div></div>;}
+
+// AUTH
+function Auth(){const{auth,sAuth,login,nfy,t}=useA();const[md,sMd]=useState("login");const[f,sF]=useState({nm:"",em:"",ph:"",tp:"farmer",co:"tn",ct:"",wa:true,bio:""});const[er,sEr]=useState("");
+if(!auth)return null;const cit=GOVS;
+return <div style={{position:"fixed",inset:0,background:CL.ov,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16,animation:"fadeIn .2s"}} onClick={()=>sAuth(false)}>
+<div style={{background:CL.sf,borderRadius:20,width:"100%",maxWidth:440,maxHeight:"90vh",overflow:"auto",padding:32,animation:"scaleIn .3s ease",boxShadow:"0 20px 60px rgba(0,0,0,.3)"}} onClick={e=>e.stopPropagation()}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}><h2 style={{fontSize:24,fontWeight:800,margin:0,background:`linear-gradient(135deg,${CL.acD},${CL.ac})`,WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>{md==="login"?t("welcomeBack"):t("joinFM")}</h2><button onClick={()=>sAuth(false)} style={{...bn("g"),padding:6}}><I.X/></button></div>
+{er&&<div style={{background:CL.dgL,color:CL.dg,padding:"10px 14px",borderRadius:10,fontSize:13,marginBottom:16}}>{er}</div>}
+{md==="login"?<><div style={{marginBottom:20}}><label style={{display:"block",fontSize:13,fontWeight:600,color:CL.tx2,marginBottom:6}}>{t("email")}</label><input style={fi} placeholder="your@email.com" value={f.em} onChange={e=>sF({...f,em:e.target.value})} onFocus={e=>e.target.style.borderColor=CL.ac} onBlur={e=>e.target.style.borderColor=CL.bd}/></div><div style={{fontSize:12,color:CL.tx3,marginBottom:16,background:CL.sfH,padding:"10px 14px",borderRadius:10}}>{t("demoAccounts")}</div><button onClick={()=>ld().then(()=>{const u=_U.find(x=>x.em===f.em);if(u){login(u);sAuth(false);nfy("Welcome!");}else sEr("Not found.");})} style={{...bn("p"),width:"100%"}}>{t("signIn")}</button></>
+:<><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><div style={{marginBottom:16}}><label style={{display:"block",fontSize:13,fontWeight:600,color:CL.tx2,marginBottom:6}}>{t("name")} *</label><input style={fi} value={f.nm} onChange={e=>sF({...f,nm:e.target.value})}/></div><div style={{marginBottom:16}}><label style={{display:"block",fontSize:13,fontWeight:600,color:CL.tx2,marginBottom:6}}>{t("email")} *</label><input style={fi} value={f.em} onChange={e=>sF({...f,em:e.target.value})}/></div></div>
+<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><div style={{marginBottom:16}}><label style={{display:"block",fontSize:13,fontWeight:600,color:CL.tx2,marginBottom:6}}>{t("phone")} *</label><input style={fi} value={f.ph} onChange={e=>sF({...f,ph:e.target.value})}/></div><div style={{marginBottom:16}}><label style={{display:"block",fontSize:13,fontWeight:600,color:CL.tx2,marginBottom:6}}>{t("region")}</label><select style={fi} value={f.co} onChange={e=>sF({...f,co:e.target.value,ct:""})}>{GOVS.map(g=><option key={g} value={g}>{g}</option>)}</select></div></div>
+<button onClick={()=>{if(!f.nm||!f.em||!f.ph){sEr("Fill required fields.");return;}ld().then(()=>{if(_U.find(x=>x.em===f.em)){sEr("Email exists.");return;}api.us.reg({...f,ct:f.ct||cit[0]||""}).then(u=>{login(u);sAuth(false);nfy("Welcome!");});});}} style={{...bn("p"),width:"100%"}}>{t("createAccount")}</button></>}
+<div style={{textAlign:"center",marginTop:16,fontSize:13,color:CL.tx2}}>{md==="login"?t("noAccount"):t("haveAccount")}{" "}<button onClick={()=>{sMd(md==="login"?"reg":"login");sEr("");}} style={{background:"none",border:"none",color:CL.ac,fontWeight:700,cursor:"pointer",fontFamily:"inherit",fontSize:13}}>{md==="login"?t("signUp"):t("signIn")}</button></div>
+</div></div>;}
+
+// PAGES
+
+function Browse(){const{nav,fl,sFl,mob,dv,t,usr,sAuth}=useA();const[ls,sLs]=useState([]);const[ft,sFt]=useState([]);const[sf,sSf]=useState(false);const[q,sQ]=useState(fl.q||"");const[reg,sReg]=useState(fl.reg||"");const[cat,sCat]=useState(fl.cat||"");const[tx,sTx]=useState(fl.tx||"");const[ld2,sLd]=useState(true);const[sort,sSort]=useState("newest");const[minPr,sMinPr]=useState(0);const[maxPr,sMaxPr]=useState(0);
+const hasFilter=cat||reg||tx||q||minPr>0||maxPr>0;
+useEffect(()=>{api.ls.feat().then(sFt);},[]);
+useEffect(()=>{const f={sort};if(cat)f.cat=cat;if(reg)f.reg=reg;if(tx)f.tx=tx;if(q)f.q=q;if(minPr>0)f.minPr=minPr;if(maxPr>0)f.maxPr=maxPr;sLd(true);api.ls.all(f).then(d=>{sLs(d);sLd(false);});},[cat,reg,tx,q,dv,sort,minPr,maxPr]);
+useEffect(()=>{if(fl.q)sQ(fl.q);if(fl.cat)sCat(fl.cat);if(fl.reg)sReg(fl.reg);},[fl]);
+const clr=()=>{sCat("");sReg("");sTx("");sQ("");sSort("newest");sMinPr(0);sMaxPr(0);sFl({});};
+const p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:1200,margin:"0 auto",width:"100%"};
+const doSearch=()=>{if(q.trim())sFl({q});};
+
+return <div>
+{/* Hero */}
+{!hasFilter&&<div style={{background:`linear-gradient(135deg,${CL.acD} 0%,${CL.ac} 50%,${CL.acH} 100%)`,padding:mob?"44px 16px 36px":"64px 24px 56px",color:"#fff",position:"relative",overflow:"hidden"}}>
+<div style={{position:"absolute",top:-60,right:-60,width:200,height:200,borderRadius:"50%",background:"rgba(255,255,255,.06)"}}/>
+<div style={{maxWidth:1200,margin:"0 auto",position:"relative"}}><h1 style={{fontSize:mob?26:42,fontWeight:800,margin:"0 0 10px",letterSpacing:"-.03em",lineHeight:1.1,whiteSpace:"pre-line"}}>{t("heroTitle")}</h1><p style={{fontSize:mob?14:17,opacity:.85,margin:"0 0 24px",maxWidth:500,lineHeight:1.5}}>{t("heroSub")}</p>
+<div style={{display:"flex",alignItems:"center",background:"rgba(255,255,255,.95)",borderRadius:14,padding:"12px 16px",gap:10,maxWidth:560,boxShadow:"0 4px 20px rgba(0,0,0,.15)"}}><I.Search/><input style={{border:"none",outline:"none",flex:1,fontSize:15,fontFamily:"inherit",color:CL.tx,background:"transparent"}} placeholder={t("searchPh")} value={q} onChange={e=>sQ(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doSearch()}/><button onClick={doSearch} style={{...bn("p"),padding:"10px 24px",borderRadius:10,fontSize:13}}>{t("search")}</button></div></div></div>}
+
+{/* Categories */}
+{!hasFilter&&<div style={{...p,marginTop:28,marginBottom:8}}>
+<h2 style={{fontSize:20,fontWeight:800,margin:"0 0 12px"}}>{t("categories")}</h2>
+<div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:10}}>{CATS.map(c=><button key={c.id} onClick={()=>{sCat(c.id);window.scrollTo(0,mob?400:500);}} style={{display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:cat===c.id?CL.acL:CL.sf,border:`1.5px solid ${cat===c.id?CL.ac:CL.bdL}`,borderRadius:12,cursor:"pointer",fontFamily:"inherit",transition:"all .2s"}} onMouseEnter={e=>{if(cat!==c.id){e.currentTarget.style.borderColor=CL.ac;e.currentTarget.style.transform="translateY(-2px)";}}} onMouseLeave={e=>{if(cat!==c.id){e.currentTarget.style.borderColor=CL.bdL;e.currentTarget.style.transform="none";}}}><span style={{fontSize:24}}>{c.icon}</span><div style={{textAlign:"left"}}><div style={{fontSize:13,fontWeight:700,color:cat===c.id?CL.ac:CL.tx}}>{t(c.id)}</div><div style={{fontSize:11,color:CL.tx3}}>{c.sub.length} {t("sub")}</div></div></button>)}</div></div>}
+
+{/* Governorates chips */}
+{!hasFilter&&<div style={{...p,marginTop:16,marginBottom:24}}>
+<h2 style={{fontSize:20,fontWeight:800,margin:"0 0 12px"}}>{t("regions")}</h2>
+<div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{GOVS.slice(0,mob?12:24).map(g=><button key={g} onClick={()=>{sReg(g);window.scrollTo(0,mob?400:500);}} style={{...tg,padding:"8px 14px",fontSize:13}} onMouseEnter={e=>{e.currentTarget.style.borderColor=CL.ac;e.currentTarget.style.color=CL.ac;}} onMouseLeave={e=>{e.currentTarget.style.borderColor=CL.bd;e.currentTarget.style.color=CL.tx2;}}>{g}</button>)}</div></div>}
+
+{/* Featured (only when no filters active) */}
+{!hasFilter&&ft.length>0&&<div style={{...p,marginBottom:32}}>
+<h2 style={{fontSize:20,fontWeight:800,margin:"0 0 14px"}}>{t("featured")}</h2>
+<div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(3,1fr)",gap:16}}>{ft.slice(0,mob?3:6).map(l=><Cd key={l.id} l={l} onClick={()=>nav("detail",{lid:l.id})}/>)}</div></div>}
+
+{/* Search + Filter bar */}
+<div style={{...p,paddingTop:hasFilter?24:0,paddingBottom:24}}>
+{hasFilter&&<div style={{display:"flex",gap:10,marginBottom:16}}><div style={{display:"flex",alignItems:"center",background:CL.sf,border:`1.5px solid ${CL.bd}`,borderRadius:14,padding:"12px 16px",gap:10,flex:1}}><I.Search/><input style={{border:"none",outline:"none",flex:1,fontSize:15,fontFamily:"inherit",color:CL.tx,background:"transparent"}} placeholder={t("searchPh")} value={q} onChange={e=>sQ(e.target.value)}/></div><button onClick={()=>sSf(!sf)} style={{...bn(sf?"p":"o"),padding:"12px",borderRadius:14,position:"relative"}}><I.Filter/>{hasFilter&&<span style={{position:"absolute",top:-4,right:-4,width:10,height:10,borderRadius:"50%",background:CL.dg,border:"2px solid #fff"}}/>}</button></div>}
+
+{/* Active filter chips */}
+{hasFilter&&<div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16,alignItems:"center"}}>
+{cat&&<span style={{...tg,...tgA,gap:6}}>{CATS.find(c=>c.id===cat)?.icon} {t(cat)} <button onClick={()=>sCat("")} style={{background:"none",border:"none",color:CL.ac,cursor:"pointer",fontWeight:700,padding:0,fontSize:14}}>×</button></span>}
+{reg&&<span style={{...tg,...tgA,gap:6}}>{reg} <button onClick={()=>sReg("")} style={{background:"none",border:"none",color:CL.ac,cursor:"pointer",fontWeight:700,padding:0,fontSize:14}}>×</button></span>}
+{tx&&<span style={{...tg,...tgA,gap:6}}>{t(tx.toLowerCase())} <button onClick={()=>sTx("")} style={{background:"none",border:"none",color:CL.ac,cursor:"pointer",fontWeight:700,padding:0,fontSize:14}}>×</button></span>}
+{q&&<span style={{...tg,...tgA,gap:6}}>"{q}" <button onClick={()=>sQ("")} style={{background:"none",border:"none",color:CL.ac,cursor:"pointer",fontWeight:700,padding:0,fontSize:14}}>×</button></span>}
+<button onClick={clr} style={{...bn("g"),fontSize:12,color:CL.dg,padding:"4px 10px"}}>{t("clearAll")}</button>
+</div>}
+
+{sf&&<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:24,marginBottom:16,animation:"fadeIn .2s",boxShadow:"0 4px 20px rgba(0,0,0,.06)"}}>
+<div style={{display:"flex",justifyContent:"space-between",marginBottom:20}}><span style={{fontSize:16,fontWeight:700}}>{t("filters")}</span><button onClick={()=>sSf(false)} style={{...bn("g"),padding:4}}><I.X/></button></div>
+<div style={{marginBottom:16}}><div style={{fontSize:12,fontWeight:700,color:CL.tx3,marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}}>{t("category")}</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{CATS.map(c=><button key={c.id} onClick={()=>sCat(cat===c.id?"":c.id)} style={{...tg,...(cat===c.id?tgA:{})}}>{c.icon} {t(c.id)}</button>)}</div></div>
+<div style={{marginBottom:16}}><div style={{fontSize:12,fontWeight:700,color:CL.tx3,marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}}>{t("region")}</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{GOVS.map(g=><button key={g} onClick={()=>sReg(reg===g?"":g)} style={{...tg,...(reg===g?tgA:{})}}>{g}</button>)}</div></div>
+<div style={{marginBottom:16}}><div style={{fontSize:12,fontWeight:700,color:CL.tx3,marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}}>{t("transaction")}</div><div style={{display:"flex",gap:8}}>{TX_T.map(x=><button key={x} onClick={()=>sTx(tx===x?"":x)} style={{...tg,...(tx===x?tgA:{})}}>{t(x.toLowerCase())}</button>)}</div></div>
+<div style={{marginBottom:16}}><div style={{fontSize:12,fontWeight:700,color:CL.tx3,marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}}>{t("priceRange")}</div>
+<div style={{display:"flex",gap:12,alignItems:"center"}}><input type="number" placeholder="Min" value={minPr||""} onChange={e=>sMinPr(Number(e.target.value)||0)} style={{...fi,width:120,padding:"8px 12px"}}/><span style={{color:CL.tx3}}>—</span><input type="number" placeholder="Max" value={maxPr||""} onChange={e=>sMaxPr(Number(e.target.value)||0)} style={{...fi,width:120,padding:"8px 12px"}}/></div></div>
+<div><div style={{fontSize:12,fontWeight:700,color:CL.tx3,marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}}>{t("sortBy")}</div><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{[["newest",t("newest")],["priceLow",t("priceLow")],["priceHigh",t("priceHigh")],["views",t("mostViewed")]].map(([k,lb])=><button key={k} onClick={()=>sSort(k)} style={{...tg,...(sort===k?tgA:{})}}>{lb}</button>)}</div></div>
+</div>}
+
+{hasFilter&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><span style={{fontSize:14,color:CL.tx2,fontWeight:500}}>{ls.length} {ls.length!==1?t("listings"):t("listing")} {t("found")}</span><button onClick={()=>sSf(!sf)} style={{...bn("g"),fontSize:12}}><I.Filter/> {t("filters")}</button></div>}
+
+{ld2&&hasFilter?<Loading/>:<div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(3,1fr)",gap:18}}>{(hasFilter?ls:ls).map(l=><Cd key={l.id} l={l} onClick={()=>nav("detail",{lid:l.id})}/>)}</div>}
+{!ld2&&hasFilter&&ls.length===0&&<div style={{textAlign:"center",padding:"64px 20px",color:CL.tx3}}><div style={{fontSize:48,marginBottom:12}}>🔍</div><div style={{fontSize:18,fontWeight:600}}>No {t("listings")}</div><button onClick={clr} style={{...bn("o"),marginTop:16}}>{t("clearAll")}</button></div>}
+</div></div>;}
+
+function Detail(){const{nav,sL:lid,mob,usr,rqA,nfy,t,favs,togFav,sAuth}=useA();const[l,sL]=useState(null);const[sel,sSel]=useState(null);const[rel,sRel]=useState([]);const[ai,sAi]=useState(0);const[rv,sRv]=useState([]);const[srf,sSrf]=useState(false);const[rr,sRR]=useState(0);const[rc,sRC]=useState("");const[lb,sLb]=useState(false);
+const[ofr,sOfr]=useState(false);const[ofrAmt,sOfrAmt]=useState("");const[rpt,sRpt]=useState(false);const[rptRsn,sRptRsn]=useState("");
+useEffect(()=>{if(!lid)return;sAi(0);sL(null);api.ls.get(lid).then(x=>{if(x){sL(x);api.us.get(x.uid).then(sSel);api.ls.all({cat:x.cat}).then(a=>sRel(a.filter(r=>r.id!==x.id).slice(0,3)));api.rv.byL(x.id).then(sRv);}});},[lid]);
+if(!l)return <Loading/>;
+const cat=CATS.find(c=>c.id===l.cat),p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:1200,margin:"0 auto",width:"100%"};
+const avg=rv.length?(rv.reduce((s,r)=>s+r.rat,0)/rv.length):0;const isFav=favs.includes(l.id);
+return <div style={{paddingBottom:40}}>
+{lb&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.92)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",animation:"fadeIn .2s"}} onClick={()=>sLb(false)}><button onClick={e=>{e.stopPropagation();sLb(false);}} style={{position:"absolute",top:16,right:16,background:"rgba(255,255,255,.15)",border:"none",color:"#fff",width:40,height:40,borderRadius:"50%",fontSize:20,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><I.X/></button>{l.imgs?.length>1&&<><button onClick={e=>{e.stopPropagation();sAi(ai>0?ai-1:l.imgs.length-1);}} style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",color:"#fff",width:44,height:44,borderRadius:"50%",fontSize:22,cursor:"pointer"}}>‹</button><button onClick={e=>{e.stopPropagation();sAi(ai<l.imgs.length-1?ai+1:0);}} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,.15)",border:"none",color:"#fff",width:44,height:44,borderRadius:"50%",fontSize:22,cursor:"pointer"}}>›</button></>}<Img src={l.imgs?.[ai]} fb={l.fb} style={{maxWidth:"90vw",maxHeight:"85vh",objectFit:"contain",borderRadius:12}} onClick={e=>e.stopPropagation()}/></div>}
+<div style={{...p,paddingTop:16,paddingBottom:8}}><button onClick={()=>nav("browse")} style={{...bn("g"),padding:"8px 0",gap:6,color:CL.tx2}}><I.Back/> {t("back")}</button></div>
+<div style={p}><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 380px",gap:28}}>
+<div style={{animation:"fadeUp .4s ease"}}>
+<div style={{borderRadius:16,overflow:"hidden",marginBottom:12,position:"relative",cursor:"pointer"}} onClick={()=>sLb(true)}><Img src={l.imgs?.[ai]} fb={l.fb} style={{width:"100%",height:mob?280:420,objectFit:"cover",background:CL.bdL}}/><div style={{position:"absolute",top:12,left:12,display:"flex",gap:8}}><span style={bg(CL.acL,CL.acD)}>{cat?.icon} {l.sub}</span><span style={bg("rgba(255,255,255,.9)",CL.wm)}>{l.tx}</span></div>
+<button onClick={e=>{e.stopPropagation();if(rqA())togFav(l.id);}} style={{position:"absolute",top:12,right:12,width:40,height:40,borderRadius:"50%",background:"rgba(255,255,255,.9)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",transition:"transform .2s"}}><I.Heart filled={isFav}/></button>
+{l.imgs?.length>1&&<div style={{position:"absolute",bottom:12,right:12,...bg("rgba(0,0,0,.5)","#fff")}}>{ai+1}/{l.imgs.length}</div>}</div>
+{l.imgs?.length>1&&<div style={{display:"flex",gap:8,marginBottom:24,overflowX:"auto"}}>{l.imgs.map((im,i)=><div key={i} onClick={()=>sAi(i)} style={{width:72,height:54,borderRadius:10,overflow:"hidden",cursor:"pointer",border:i===ai?`2px solid ${CL.ac}`:"2px solid transparent",opacity:i===ai?1:.5,flexShrink:0,transition:"all .2s"}}><Img src={im} fb={l.fb} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>)}</div>}
+<h1 style={{fontSize:mob?24:28,fontWeight:800,margin:"0 0 10px",letterSpacing:"-.01em"}}>{l.tt}</h1>
+<div style={{display:"flex",alignItems:"center",gap:12,marginBottom:20,flexWrap:"wrap"}}>
+<span style={{display:"inline-flex",alignItems:"center",gap:6,padding:"5px 12px",borderRadius:20,fontSize:12,fontWeight:700,background:CL.sfH,color:CL.tx}}>{PT[l.pt||"fixed"].ic()} <span style={{marginLeft:2}}>{PT[l.pt||"fixed"].lb}</span></span>
+<span style={{fontSize:28,fontWeight:800,color:CL.acD}}>{l.pt==="free"?"Free":l.pr>0?l.pr.toLocaleString()+" DT"+(l.un||""):""}</span>
+<span style={{display:"flex",alignItems:"center",gap:4,color:CL.tx3,fontSize:13}}><I.Pin/>{l.ct}</span></div>
+<div style={{marginBottom:24}}><h3 style={{fontSize:16,fontWeight:700,margin:"0 0 8px"}}>{t("description")}</h3><p style={{fontSize:14,lineHeight:1.7,color:CL.tx2,margin:0}}>{l.ds}</p></div>
+<div style={{background:CL.sfH,borderRadius:14,padding:20,marginBottom:24}}><h3 style={{fontSize:16,fontWeight:700,margin:"0 0 12px"}}>{t("details")}</h3>{[[t("category"),`${cat?.icon} ${t(cat?.id)}`],[t("type"),l.tx],[t("location"),`${l.ct}, ${"تونس"}`]].map(([k,v])=><div key={k} style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderBottom:`1px solid ${CL.bdL}`,fontSize:14}}><span style={{color:CL.tx3}}>{k}</span><span style={{fontWeight:600}}>{v}</span></div>)}<div style={{display:"flex",justifyContent:"space-between",padding:"10px 0",borderBottom:`1px solid ${CL.bdL}`,fontSize:14}}><span style={{color:CL.tx3}}>{t("listed")}</span><span style={{fontWeight:600}}>{l.at}</span></div></div>
+{/* Reviews */}
+<div style={{marginBottom:24}}><div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><div><h3 style={{fontSize:16,fontWeight:700,margin:"0 0 4px"}}>{t("reviews")} ({rv.length})</h3>{rv.length>0&&<Stars r={avg}/>}</div><button onClick={()=>{if(rqA())sSrf(!srf);}} style={bn("o")}>{t("writeReview")}</button></div>
+{srf&&<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:14,padding:20,marginBottom:16}}><div style={{marginBottom:12}}><label style={{display:"block",fontSize:13,fontWeight:600,color:CL.tx2,marginBottom:6}}>{t("rating")}</label><Stars r={rr} sz={28} int onR={sRR}/></div><textarea style={{...fi,resize:"vertical",minHeight:80,marginBottom:12}} rows={3} value={rc} onChange={e=>sRC(e.target.value)}/><div style={{display:"flex",gap:10}}><button onClick={()=>{if(!rr){nfy("Select rating","err");return;}api.rv.add({lid:l.id,uid:usr.id,rat:rr,txt:rc}).then(()=>api.rv.byL(l.id)).then(r=>{sRv(r);sSrf(false);sRR(0);sRC("");nfy("Review submitted!");});}} style={bn("p")}>{t("submit")}</button><button onClick={()=>sSrf(false)} style={bn("g")}>{t("cancel")}</button></div></div>}
+{rv.map(r=>{const u=D_U.find(x=>x.id===r.uid)||{nm:"User"};return <div key={r.id} style={{padding:"16px 0",borderBottom:`1px solid ${CL.bdL}`}}><div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}><div style={{width:34,height:34,borderRadius:"50%",background:CL.acL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:CL.ac}}>{u.nm.charAt(0)}</div><div style={{flex:1}}><div style={{fontSize:14,fontWeight:600}}>{u.nm}</div><div style={{fontSize:11,color:CL.tx3}}>{r.at}</div></div><Stars r={r.rat} sz={12}/></div>{r.txt&&<p style={{fontSize:13,color:CL.tx2,margin:0,paddingLeft:44}}>{r.txt}</p>}</div>;})}
+{rv.length===0&&!srf&&<div style={{textAlign:"center",padding:"24px 0",color:CL.tx3,fontSize:13}}>{t("noReviews")}</div>}</div></div>
+{/* Seller sidebar */}
+<div style={{animation:"fadeUp .5s ease"}}><div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:24,position:mob?"static":"sticky",top:24,boxShadow:"0 2px 12px rgba(0,0,0,.04)"}}>
+{sel&&<div style={{marginBottom:20}}><div style={{display:"flex",alignItems:"center",gap:12,marginBottom:12,cursor:"pointer"}} onClick={()=>nav("userP",{uid:sel.id})}><div style={{width:52,height:52,borderRadius:"50%",background:`linear-gradient(135deg,${CL.acL},${CL.acH}22)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,fontWeight:700,color:CL.ac}}>{sel.nm.charAt(0)}</div><div style={{flex:1}}><span style={{fontSize:16,fontWeight:700}}>{sel.nm}</span>{sel.vf&&<span style={{...bg(CL.acL,CL.ac),marginLeft:6,fontSize:10}}>✓ {t("verified")}</span>}<div style={{fontSize:12,color:CL.tx3}}>{t(sel.tp)} · {sel.jn}</div></div></div><Stars r={sel.rt}/></div>}
+<div style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
+{usr?<>{sel?.ph&&<button style={bn("p")} onClick={()=>nfy(`Calling ${sel.ph}...`)}><I.Phone/> {t("call")}</button>}
+{sel?.wa&&<button style={bn("wa")} onClick={()=>nfy("Opening WhatsApp...")}><I.WA/> {t("whatsapp")}</button>}
+<button style={bn("o")} onClick={()=>nav("chat",{cTo:sel.id,cLid:l.id})}><I.Chat/> {t("message")}</button></>
+:<div style={{position:"relative",borderRadius:14,overflow:"hidden"}}>
+<div style={{filter:"blur(6px)",pointerEvents:"none",opacity:.5,display:"flex",flexDirection:"column",gap:10}}><div style={{...bn("p"),width:"100%",justifyContent:"center"}}><I.Phone/> +216 ** *** ***</div><div style={{...bn("wa"),width:"100%",justifyContent:"center"}}><I.WA/> WhatsApp</div></div>
+<div style={{position:"absolute",inset:0,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,.85)",borderRadius:14,backdropFilter:"blur(2px)"}}>
+<I.Lock/><div style={{fontSize:14,fontWeight:700,marginTop:8,marginBottom:4}}>Sign in to contact</div>
+<div style={{fontSize:12,color:CL.tx3,marginBottom:12}}>See phone, WhatsApp & message</div>
+<button onClick={()=>sAuth(true)} style={{...bn("p"),padding:"10px 28px",fontSize:13}}>{t("signIn")}</button>
+</div></div>}</div>
+{/* Make Offer + Report */}
+{usr&&l.pt==="negotiable"&&<button onClick={()=>sOfr(true)} style={{...bn("purple"),width:"100%",marginBottom:8}}><I.Handshake/> {t("makeOffer")}</button>}
+<div style={{display:"flex",justifyContent:"center",paddingTop:12,borderTop:`1px solid ${CL.bdL}`}}><button onClick={()=>{if(rqA())sRpt(true);}} style={{...bn("g"),fontSize:12,color:CL.tx3}}>
+<svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg> Report</button></div>
+</div></div></div>
+{/* Make Offer Modal */}
+{ofr&&<div style={{position:"fixed",inset:0,background:CL.ov,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16,animation:"fadeIn .2s"}} onClick={()=>sOfr(false)}><div style={{background:CL.sf,borderRadius:20,width:"100%",maxWidth:400,padding:28,animation:"scaleIn .3s"}} onClick={e=>e.stopPropagation()}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><h3 style={{fontSize:18,fontWeight:800,margin:0}}>{t("makeOffer")}</h3><button onClick={()=>sOfr(false)} style={{...bn("g"),padding:4}}><I.X/></button></div>
+<div style={{fontSize:14,color:CL.tx2,marginBottom:16}}>Listing price: <strong>{l.pr>0?l.pr.toLocaleString()+" DT"+(l.un||""):"Contact"}</strong></div>
+<div style={{marginBottom:16}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:6}}>Your offer (DT)</label><input style={{...fi,fontSize:18,fontWeight:700,textAlign:"center"}} type="number" placeholder="0" value={ofrAmt} onChange={e=>sOfrAmt(e.target.value)}/></div>
+<button onClick={()=>{if(!ofrAmt){nfy("Enter an amount","err");return;}api.msg.send({from:usr.id,to:sel.id,lid:l.id,txt:`💰 Offer: ${ofrAmt} DT${l.un||""} for "${l.tt}"`}).then(()=>{sOfr(false);sOfrAmt("");nfy("Offer sent!");});}} style={{...bn("p"),width:"100%"}}>Send Offer</button>
+</div></div>}
+{/* Report Modal */}
+{rpt&&<div style={{position:"fixed",inset:0,background:CL.ov,display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:16,animation:"fadeIn .2s"}} onClick={()=>sRpt(false)}><div style={{background:CL.sf,borderRadius:20,width:"100%",maxWidth:400,padding:28,animation:"scaleIn .3s"}} onClick={e=>e.stopPropagation()}>
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}><h3 style={{fontSize:18,fontWeight:800,margin:0}}>Report Listing</h3><button onClick={()=>sRpt(false)} style={{...bn("g"),padding:4}}><I.X/></button></div>
+<div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>{["Spam or misleading","Wrong category","Inappropriate content","Scam or fraud","Other"].map(r=><button key={r} onClick={()=>sRptRsn(r)} style={{...tg,justifyContent:"flex-start",...(rptRsn===r?tgA:{})}}>{r}</button>)}</div>
+<button onClick={()=>{if(!rptRsn){nfy("Select a reason","err");return;}sRpt(false);sRptRsn("");nfy("Report submitted. Thank you!");}} style={{...bn("d"),width:"100%"}}>Submit Report</button>
+</div></div>}
+{rel.length>0&&<div style={{marginTop:44}}><h2 style={{fontSize:22,fontWeight:800,margin:"0 0 16px"}}>{t("similar")}</h2><div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(3,1fr)",gap:18}}>{rel.map(x=><Cd key={x.id} l={x} onClick={()=>nav("detail",{lid:x.id})}/>)}</div></div>}
+</div></div>;}
+
+function Create(){const{mob,usr,rqA,nav,nfy,rfr,t}=useA();const[st,sSt]=useState(1);const[f,sF]=useState({tt:"",ds:"",cat:"",sub:"",tx:"Sell",pr:"",pt:"fixed",un:"",co:"tn",ct:"",imgs:[]});const[busy,sBsy]=useState(false);const fRef=useRef(null);
+const p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:1200,margin:"0 auto",width:"100%"};
+useEffect(()=>{if(!usr)rqA();},[]);
+if(!usr)return <div style={{...p,paddingTop:32}}><h1 style={{fontSize:24,fontWeight:800,margin:"0 0 8px"}}>{t("createListing")}</h1><div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:40,textAlign:"center"}}><div style={{fontSize:48,marginBottom:12}}>🔐</div><div style={{fontSize:16,fontWeight:600}}>{t("signInReq")}</div><button onClick={rqA} style={{...bn("p"),marginTop:16}}>{t("signIn")}</button></div></div>;
+const sc=CATS.find(c=>c.id===f.cat);
+const ok=()=>st===1?(f.cat&&f.sub&&f.tx):st===2?(f.tt&&f.ds):st===3?(f.co&&f.ct):true;
+const addFiles=files=>{Array.from(files).forEach(file=>{if(!file.type.startsWith("image/"))return;const r=new FileReader();r.onload=e=>sF(prev=>({...prev,imgs:[...prev.imgs,e.target.result]}));r.readAsDataURL(file);});};
+return <div style={{...p,paddingTop:32,paddingBottom:40}}>
+<h1 style={{fontSize:24,fontWeight:800,margin:"0 0 24px"}}>{t("createListing")}</h1>
+<div style={{display:"flex",gap:4,marginBottom:32}}>{[t("catType"),t("listingDetails"),t("locationStep"),t("review")].map((x,i)=><div key={i} style={{flex:1,textAlign:"center"}}><div style={{height:5,borderRadius:3,background:i+1<=st?`linear-gradient(90deg,${CL.ac},${CL.acH})`:CL.bd,marginBottom:8,transition:"all .3s"}}/><div style={{fontSize:11,fontWeight:i+1===st?700:400,color:i+1<=st?CL.ac:CL.tx3}}>{x}</div></div>)}</div>
+<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:mob?20:32}}>
+{st===1&&<><div style={{marginBottom:20}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:8}}>{t("category")} *</label><div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>{CATS.map(c=><button key={c.id} onClick={()=>sF({...f,cat:c.id,sub:""})} style={{padding:18,borderRadius:14,border:`2px solid ${f.cat===c.id?CL.ac:CL.bd}`,background:f.cat===c.id?CL.acL:CL.sf,cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all .2s"}}><div style={{fontSize:26,marginBottom:4}}>{c.icon}</div><div style={{fontSize:14,fontWeight:700,color:f.cat===c.id?CL.ac:CL.tx}}>{t(c.id)}</div></button>)}</div></div>
+{sc&&<div style={{marginBottom:20}}><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{sc.sub.map(s=><button key={s} onClick={()=>sF({...f,sub:s})} style={{...tg,...(f.sub===s?tgA:{})}}>{s}</button>)}</div></div>}
+<div><div style={{display:"flex",gap:8}}>{TX_T.map(x=><button key={x} onClick={()=>sF({...f,tx:x})} style={{...tg,...(f.tx===x?tgA:{})}}>{t(x.toLowerCase())}</button>)}</div></div></>}
+{st===2&&<><div style={{marginBottom:20}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:6}}>{t("title")} *</label><input style={fi} value={f.tt} onChange={e=>sF({...f,tt:e.target.value})}/></div>
+<div style={{marginBottom:20}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:6}}>{t("desc")} *</label><textarea style={{...fi,resize:"vertical",minHeight:100}} rows={4} value={f.ds} onChange={e=>sF({...f,ds:e.target.value})}/></div>
+<div style={{marginBottom:20}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:6}}>{t("price")}</label><input style={fi} type="number" placeholder="0 = free" value={f.pr} onChange={e=>sF({...f,pr:e.target.value})}/></div>
+<div style={{marginBottom:20}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:8}}>Price type</label><div style={{display:"flex",gap:8}}>{[["fixed","Fixed"],["negotiable","Negotiable"],["free","Free"]].map(([k,ic,lb])=><button key={k} onClick={()=>sF({...f,pt:k,pr:k==="free"?"0":f.pr})} style={{flex:1,padding:"12px 8px",borderRadius:12,border:`2px solid ${f.pt===k?CL.tx:CL.bd}`,background:f.pt===k?CL.sfH:CL.sf,cursor:"pointer",fontFamily:"inherit",textAlign:"center",transition:"all .2s"}}><div style={{marginBottom:2}}>{PT[k].ic()}</div><div style={{fontSize:12,fontWeight:f.pt===k?700:500,color:f.pt===k?CL.tx:CL.tx2}}>{lb}</div></button>)}</div></div>
+<div style={{marginBottom:20}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:8}}>Unit</label><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{UNITS.map(u=><button key={u} onClick={()=>sF({...f,un:f.un===u?"":u})} style={{...tg,padding:"6px 12px",fontSize:12,...(f.un===u?tgA:{})}}>{u}</button>)}</div></div>
+<div><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:6}}>{t("photos")}</label>
+{f.imgs.length>0&&<div style={{display:"flex",gap:10,flexWrap:"wrap",marginBottom:12}}>{f.imgs.map((im,i)=><div key={i} style={{position:"relative",width:96,height:72,borderRadius:12,overflow:"hidden",border:`1px solid ${CL.bdL}`}}><img src={im} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/><button onClick={()=>sF({...f,imgs:f.imgs.filter((_,idx)=>idx!==i)})} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,.6)",border:"none",color:"#fff",fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button></div>)}</div>}
+<div onClick={()=>fRef.current?.click()} style={{border:`2px dashed ${CL.bd}`,borderRadius:14,padding:"28px 20px",textAlign:"center",background:CL.sfH,cursor:"pointer",transition:"all .2s"}}><input ref={fRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>{addFiles(e.target.files);e.target.value="";}}/><div style={{fontSize:28,marginBottom:8}}>📷</div><div style={{fontSize:14,fontWeight:600}}>{t("tapUpload")}</div></div></div></>}
+{st===3&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}><div><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:6}}>{t("region")} *</label><select style={fi} value={f.co} onChange={e=>sF({...f,co:e.target.value,ct:""})}>{GOVS.map(g=><option key={g} value={g}>{g}</option>)}</select></div><div><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:6}}>{t("city")} *</label><select style={fi} value={f.ct} onChange={e=>sF({...f,ct:e.target.value})}><option value="">Select</option>{GOVS.map(g=><option key={g} value={g}>{g}</option>)}</select></div></div>}
+{st===4&&<div>{[[t("title"),f.tt],[t("category"),`${sc?.icon} ${t(sc?.id)} > ${f.sub}`],[t("type"),f.tx],[t("price"),f.pt==="free"?"Free":f.pr?`${f.pr} DT${f.un||""} · ${PT[f.pt||"fixed"].lb}`:"Contact"],[t("location"),`${f.ct}, ${"تونس"}`],[t("photos"),`${f.imgs.length}`]].map(([k,v])=><div key={k} style={{display:"flex",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${CL.bdL}`,fontSize:14}}><span style={{color:CL.tx3}}>{k}</span><span style={{fontWeight:600}}>{v}</span></div>)}</div>}
+<div style={{display:"flex",justifyContent:"space-between",marginTop:28,paddingTop:20,borderTop:`1px solid ${CL.bdL}`}}>{st>1?<button onClick={()=>sSt(st-1)} style={bn("g")}>← {t("back")}</button>:<div/>}{st<4?<button onClick={()=>sSt(st+1)} disabled={!ok()} style={{...bn("p"),opacity:ok()?1:.5}}>{t("next")} →</button>:<button onClick={()=>{sBsy(true);api.ls.add({...f,pr:parseFloat(f.pr)||0,uid:usr.id,pt:f.pt||"fixed"}).then(()=>{rfr();nfy("Published!");nav("browse");});}} disabled={busy} style={bn("p")}>{busy?t("publishing"):t("publish")}</button>}</div>
+</div></div>;}
+
+// FAVORITES PAGE
+function FavsPage(){const{nav,mob,usr,favs,t}=useA();const[ls,sLs]=useState([]);const[ld2,sLd]=useState(true);
+const p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:1200,margin:"0 auto",width:"100%"};
+useEffect(()=>{if(!usr||!favs.length){sLd(false);return;}Promise.all(favs.map(id=>api.ls.get(id))).then(r=>{sLs(r.filter(Boolean));sLd(false);});},[favs,usr]);
+return <div style={{...p,paddingTop:24,paddingBottom:40}}>
+<h1 style={{fontSize:24,fontWeight:800,margin:"0 0 20px"}}><I.Heart filled/> {t("savedListings")}</h1>
+{ld2?<Loading/>:ls.length>0?<div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(3,1fr)",gap:18}}>{ls.map(l=><Cd key={l.id} l={l} onClick={()=>nav("detail",{lid:l.id})}/>)}</div>
+:<div style={{textAlign:"center",padding:"64px 20px",color:CL.tx3}}><div style={{fontSize:48,marginBottom:12}}>💚</div><div style={{fontSize:18,fontWeight:600}}>{t("noFavorites")}</div><button onClick={()=>nav("browse")} style={{...bn("p"),marginTop:16}}>{t("browse")}</button></div>}
+</div>;}
+
+// SUBSCRIPTION TIERS
+function PricingPage(){const{mob,usr,nfy,t}=useA();
+const p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:1200,margin:"0 auto",width:"100%"};
+const plans=[
+  {id:"free",name:t("free"),price:"0",color:CL.tx2,bg:CL.sfH,features:[t("freeListings"),t("browse"),t("message")]},
+  {id:"basic",name:t("basic"),price:t("basicPrice"),color:CL.ac,bg:CL.acL,popular:true,features:[t("unlimitedListings"),t("prioritySupport"),t("analyticsAccess"),t("message")]},
+  {id:"premium",name:t("premium"),price:t("premiumPrice"),color:CL.purple,bg:CL.purpleL,features:[t("unlimitedListings"),t("featuredBadge"),t("verifiedBadge"),t("analyticsAccess"),t("apiAccess"),t("prioritySupport")]},
+];
+return <div style={{...p,paddingTop:32,paddingBottom:40}}>
+<div style={{textAlign:"center",marginBottom:36}}><h1 style={{fontSize:mob?28:36,fontWeight:800,margin:"0 0 8px",letterSpacing:"-.02em"}}>{t("pricing")}</h1><p style={{color:CL.tx2,fontSize:16,margin:0}}>Choose the plan that fits your business</p></div>
+<div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(3,1fr)",gap:20,alignItems:"start"}}>
+{plans.map(pl=>{const isCurrent=usr?.plan===pl.id;return <div key={pl.id} style={{background:CL.sf,border:pl.popular?`2px solid ${pl.color}`:`1px solid ${CL.bd}`,borderRadius:20,padding:28,position:"relative",transition:"all .2s",transform:pl.popular&&!mob?"scale(1.04)":"none",boxShadow:pl.popular?"0 8px 30px rgba(0,0,0,.1)":"none"}} onMouseEnter={e=>{if(!pl.popular)e.currentTarget.style.boxShadow="0 4px 20px rgba(0,0,0,.08)";}} onMouseLeave={e=>{if(!pl.popular)e.currentTarget.style.boxShadow="none";}}>
+{pl.popular&&<div style={{position:"absolute",top:-12,left:"50%",transform:"translateX(-50%)",...bg(pl.color,"#fff"),padding:"4px 16px",fontSize:12,borderRadius:20,boxShadow:"0 2px 8px rgba(0,0,0,.15)"}}>{t("popularChoice")}</div>}
+<div style={{textAlign:"center",marginBottom:20,paddingTop:pl.popular?8:0}}>
+<div style={{fontSize:18,fontWeight:700,color:pl.color,marginBottom:8}}>{pl.name}</div>
+<div style={{display:"flex",alignItems:"baseline",justifyContent:"center",gap:2}}><span style={{fontSize:44,fontWeight:800,color:CL.tx}}>${pl.price}</span><span style={{fontSize:14,color:CL.tx3}}>{pl.price!=="0"&&t("perMonth")}</span></div>
+</div>
+<div style={{marginBottom:24}}>{pl.features.map((f,i)=><div key={i} style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",fontSize:14,color:CL.tx2}}><svg width="16" height="16" fill="none" stroke={pl.color} strokeWidth="2.5" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>{f}</div>)}</div>
+{isCurrent?<div style={{textAlign:"center",padding:"12px 0",background:pl.bg,borderRadius:12,fontWeight:700,color:pl.color,fontSize:14}}>{t("currentPlan")}</div>
+:<button onClick={()=>nfy(`Upgraded to ${pl.name}!`)} style={{...(pl.popular?bn("p"):pl.id==="premium"?bn("purple"):bn("o")),width:"100%"}}>{pl.id==="free"?t("choosePlan"):t("upgrade")}</button>}
+</div>;})}
+</div></div>;}
+
+// CHAT, ADMIN, SETTINGS, PROFILE, USERP - simplified for space
+function ConvoItem({cv,onClick}){const ou=D_U.find(u=>u.id===cv.other)||{nm:"User"};const ll=D_L.find(l=>l.id===cv.lid)||{tt:"Listing"};const last=cv.msgs[cv.msgs.length-1];return <div onClick={onClick} style={{background:CL.sf,border:`1px solid ${CL.bdL}`,borderRadius:14,padding:16,marginBottom:8,cursor:"pointer",display:"flex",gap:12,alignItems:"center",transition:"all .2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor=CL.ac} onMouseLeave={e=>e.currentTarget.style.borderColor=CL.bdL}><div style={{width:44,height:44,borderRadius:"50%",background:CL.acL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:700,color:CL.ac,flexShrink:0}}>{ou.nm.charAt(0)}</div><div style={{flex:1,minWidth:0}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}><span style={{fontSize:14,fontWeight:700}}>{ou.nm}</span><span style={{fontSize:11,color:CL.tx3}}>{new Date(cv.last).toLocaleDateString()}</span></div><div style={{fontSize:12,color:CL.ac,marginBottom:2}}>{ll.tt}</div><div style={{fontSize:13,color:CL.tx2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{last?.txt}</div></div></div>;}
+function MsgBub({m,mine}){return <div style={{display:"flex",justifyContent:mine?"flex-end":"flex-start",marginBottom:8,animation:"fadeIn .15s"}}><div style={{maxWidth:"75%",padding:"10px 14px",borderRadius:mine?"16px 16px 4px 16px":"16px 16px 16px 4px",background:mine?`linear-gradient(135deg,${CL.ac},${CL.acH})`:CL.sfH,color:mine?"#fff":CL.tx,fontSize:13,lineHeight:1.5}}>{m.txt}<div style={{fontSize:10,marginTop:4,opacity:.6,textAlign:"right"}}>{new Date(m.at).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div></div></div>;}
+
+function ChatPg(){const{nav,mob,usr,cTo,cLid,t}=useA();const[convos,sConvos]=useState([]);const[thread,sThread]=useState(null);const[msgs,sMsgs]=useState([]);const[txt,sTxt]=useState("");const[oU,sOU]=useState(null);const[oL,sOL]=useState(null);const endRef=useRef(null);
+const p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:1200,margin:"0 auto",width:"100%"};
+useEffect(()=>{if(!usr)return;if(cTo&&cLid){api.msg.thread(usr.id,cTo,cLid).then(sMsgs);api.us.get(cTo).then(sOU);api.ls.get(cLid).then(sOL);sThread({o:cTo,lid:cLid});}else api.msg.convos(usr.id).then(sConvos);},[usr,cTo,cLid]);
+useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[msgs]);
+const openConvo=(cv)=>{Promise.all([api.msg.thread(usr.id,cv.other,cv.lid),api.us.get(cv.other),api.ls.get(cv.lid)]).then(([m,u2,l2])=>{sMsgs(m);sOU(u2);sOL(l2);sThread({o:cv.other,lid:cv.lid});});};
+const doSend=()=>{if(!txt.trim())return;api.msg.send({from:usr.id,to:thread.o,lid:thread.lid,txt:txt.trim()}).then(()=>{sTxt("");api.msg.thread(usr.id,thread.o,thread.lid).then(sMsgs);});};
+if(!usr)return <div style={{...p,paddingTop:32}}><h1 style={{fontSize:24,fontWeight:800,margin:"0 0 8px"}}>{t("msgTitle")}</h1><div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:40,textAlign:"center"}}><div style={{fontSize:48,marginBottom:12}}>💬</div><div style={{fontSize:14,color:CL.tx3}}>{t("signInMsg")}</div></div></div>;
+if(!thread)return <div style={{...p,paddingTop:24,paddingBottom:40}}><h1 style={{fontSize:24,fontWeight:800,margin:"0 0 16px"}}>{t("msgTitle")}</h1>{convos.length>0?convos.map((cv,i)=><ConvoItem key={i} cv={cv} onClick={()=>openConvo(cv)}/>):<div style={{textAlign:"center",padding:"64px 0",color:CL.tx3}}><div style={{fontSize:48,marginBottom:12}}>💬</div><div style={{fontSize:14}}>{t("noConvos")}</div></div>}</div>;
+return <div style={{...p,paddingTop:16,paddingBottom:24,display:"flex",flexDirection:"column",height:mob?"calc(100vh - 100px)":"calc(100vh - 40px)"}}>
+<div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,paddingBottom:12,borderBottom:`1px solid ${CL.bdL}`}}><button onClick={()=>{sThread(null);nav("chat");}} style={{...bn("g"),padding:6}}><I.Back/></button><div style={{width:36,height:36,borderRadius:"50%",background:CL.acL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,color:CL.ac}}>{oU?.nm?.charAt(0)}</div><div style={{flex:1}}><div style={{fontSize:14,fontWeight:700}}>{oU?.nm}</div><div style={{fontSize:11,color:CL.tx3}}>{oL?.tt}</div></div></div>
+<div style={{flex:1,overflow:"auto",marginBottom:12}}>{msgs.map(m=><MsgBub key={m.id} m={m} mine={m.from===usr.id}/>)}<div ref={endRef}/></div>
+<div style={{display:"flex",gap:8}}><input style={{...fi,flex:1}} placeholder={t("typeMsg")} value={txt} onChange={e=>sTxt(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")doSend();}}/><button onClick={doSend} style={{...bn("p"),padding:"11px 16px"}}><I.Send/></button></div></div>;}
+
+function AdminPg(){const{mob,usr,nfy,rfr,t}=useA();const[tab,sTab]=useState("listings");const[ls,sLs]=useState([]);const[us,sUs]=useState([]);
+const p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:1200,margin:"0 auto",width:"100%"};
+useEffect(()=>{api.ls.all({}).then(sLs);api.us.all().then(sUs);},[]);
+if(!usr||usr.role!=="admin")return <div style={{...p,paddingTop:32}}><h1 style={{fontSize:24,fontWeight:800}}>{t("admin")}</h1><div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:40,textAlign:"center"}}><div style={{fontSize:48,marginBottom:12}}>🔒</div><div style={{fontSize:14,color:CL.tx3}}>{t("adminReq")}</div></div></div>;
+const byReg={},byCat={};ls.forEach(l=>{byReg[l.ct]=(byReg[l.ct]||0)+1;byCat[l.cat]=(byCat[l.cat]||0)+1;});
+return <div style={{...p,paddingTop:24,paddingBottom:40}}>
+<h1 style={{fontSize:24,fontWeight:800,margin:"0 0 4px"}}>{t("adminDash")}</h1><p style={{color:CL.tx2,fontSize:14,margin:"0 0 24px"}}>{t("adminSub")}</p>
+<div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(4,1fr)",gap:12,marginBottom:24}}>{[[t("totalListings"),ls.length,"📋",CL.acD],[t("totalUsers"),us.length,"👥",CL.info],[t("regions"),Object.keys(byReg).length,"🌍",CL.wm],[t("reviews"),D_R.length,"⭐",CL.ok]].map(([l,v,ic,fg])=><div key={l} style={{background:CL.sf,border:`1px solid ${CL.bdL}`,borderRadius:14,padding:16,textAlign:"center"}}><div style={{fontSize:24,marginBottom:4}}>{ic}</div><div style={{fontSize:24,fontWeight:800,color:fg}}>{v}</div><div style={{fontSize:12,color:CL.tx3}}>{l}</div></div>)}</div>
+<div style={{display:"flex",gap:4,marginBottom:20}}>{[["listings",t("listings")],["users",t("users")],["analytics",t("analytics")]].map(([id,lb])=><button key={id} onClick={()=>sTab(id)} style={{padding:"10px 20px",borderRadius:10,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:14,fontWeight:tab===id?700:400,background:tab===id?CL.acL:CL.sfH,color:tab===id?CL.ac:CL.tx2,transition:"all .2s"}}>{lb}</button>)}</div>
+{tab==="listings"&&<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,overflow:"hidden"}}>{ls.map(l=>{const u=D_U.find(x=>x.id===l.uid)||{nm:"?"};return <div key={l.id} style={{padding:"12px 16px",display:"flex",gap:12,alignItems:"center",borderBottom:`1px solid ${CL.bdL}`}}><Img src={l.imgs?.[0]} fb={l.fb} style={{width:48,height:36,borderRadius:8,objectFit:"cover",background:CL.bdL,flexShrink:0}}/><div style={{flex:1,minWidth:0}}><div style={{fontSize:13,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.tt}</div><div style={{fontSize:11,color:CL.tx3}}>{u.nm} · {l.ct}</div></div><span style={bg(l.ft?CL.acL:CL.sfH,l.ft?CL.ac:CL.tx3)}>{l.ft?t("featured"):t("normal")}</span><button onClick={()=>api.ls.del(l.id).then(()=>{sLs(ls.filter(x=>x.id!==l.id));rfr();nfy("Removed");})} style={{...bn("g"),padding:4,color:CL.dg}}><I.Trash/></button></div>;})}</div>}
+{tab==="users"&&<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,overflow:"hidden"}}>{us.map(u=><div key={u.id} style={{padding:"12px 16px",display:"flex",gap:12,alignItems:"center",borderBottom:`1px solid ${CL.bdL}`}}><div style={{width:36,height:36,borderRadius:"50%",background:CL.acL,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:CL.ac,flexShrink:0}}>{u.nm.charAt(0)}</div><div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{u.nm}</div><div style={{fontSize:11,color:CL.tx3}}>{u.em} · {t(u.tp)}</div></div><button onClick={()=>api.us.upd(u.id,{vf:!u.vf}).then(()=>api.us.all()).then(a=>{sUs(a);nfy(u.vf?"Unverified":"Verified!");})} style={{...bn(u.vf?"o":"p"),padding:"6px 14px",fontSize:12}}>{u.vf?`✓ ${t("verified")}`:t("verify")}</button></div>)}</div>}
+{tab==="analytics"&&<div style={{display:"grid",gridTemplateColumns:mob?"1fr":"1fr 1fr",gap:16}}>
+<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:20}}><h3 style={{fontSize:16,fontWeight:700,margin:"0 0 16px"}}>{t("byRegion")}</h3>{GOVS.map(g=>{const cnt=byReg[g]||0;const pct=ls.length?(cnt/ls.length*100):0;return <div key={g} style={{marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}><span>{g}</span><span style={{fontWeight:700}}>{cnt}</span></div><div style={{height:8,background:CL.bdL,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",background:`linear-gradient(90deg,${CL.ac},${CL.acH})`,borderRadius:4,width:`${pct}%`,transition:"width .6s ease"}}/></div></div>;})}</div>
+<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:20}}><h3 style={{fontSize:16,fontWeight:700,margin:"0 0 16px"}}>{t("listingsByCat")}</h3>{CATS.map(c=>{const cnt=byCat[c.id]||0;const pct=ls.length?(cnt/ls.length*100):0;return <div key={c.id} style={{marginBottom:14}}><div style={{display:"flex",justifyContent:"space-between",fontSize:13,marginBottom:4}}><span>{c.icon} {t(c.id)}</span><span style={{fontWeight:700}}>{cnt}</span></div><div style={{height:8,background:CL.bdL,borderRadius:4,overflow:"hidden"}}><div style={{height:"100%",background:`linear-gradient(90deg,${CL.wm},#F59F00)`,borderRadius:4,width:`${pct}%`,transition:"width .6s ease"}}/></div></div>;})}</div></div>}
+</div>;}
+
+function Settings(){const{mob,t,lang,setLang,usr,logout,nfy}=useA();
+const p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:1200,margin:"0 auto",width:"100%"};
+return <div style={{...p,paddingTop:24,paddingBottom:40}}>
+<h1 style={{fontSize:24,fontWeight:800,margin:"0 0 24px"}}>{t("settingsTitle")}</h1>
+<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:24,marginBottom:16}}>
+<div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{t("language")}</div>
+<div style={{display:"flex",gap:10}}>{[{id:"en",label:"English",flag:"🇬🇧"},{id:"fr",label:"Français",flag:"🇫🇷"},{id:"ar",label:"العربية",flag:"🇸🇦"}].map(l=><button key={l.id} onClick={()=>setLang(l.id)} style={{flex:1,padding:"16px 12px",borderRadius:14,border:`2px solid ${lang===l.id?CL.ac:CL.bd}`,background:lang===l.id?CL.acL:CL.sf,cursor:"pointer",fontFamily:"inherit",textAlign:"center",transition:"all .2s"}}><div style={{fontSize:24,marginBottom:4}}>{l.flag}</div><div style={{fontSize:13,fontWeight:lang===l.id?700:400,color:lang===l.id?CL.ac:CL.tx}}>{l.label}</div></button>)}</div></div>
+{usr&&<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:24}}>
+<div style={{fontSize:16,fontWeight:700,marginBottom:16}}>{t("account")}</div>
+<div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}><div><div style={{fontSize:14,fontWeight:700}}>{usr.nm}</div><div style={{fontSize:12,color:CL.tx3}}>{usr.em}</div></div><button onClick={logout} style={{...bn("g"),color:CL.dg}}><I.Out/> {t("signOut")}</button></div></div>}
+<div style={{textAlign:"center",color:CL.tx3,fontSize:12,marginTop:24}}>Version 5.0 · فلاحة ماركت 🌾</div>
+</div>;}
+
+function UserPg(){const{sU:uid,nav,mob,t}=useA();const[u,sU]=useState(null);const[ul,sUl]=useState([]);
+const p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:1200,margin:"0 auto",width:"100%"};
+useEffect(()=>{if(!uid)return;api.us.get(uid).then(x=>{sU(x);if(x)api.ls.byUser(x.id).then(sUl);});},[uid]);
+if(!u)return <Loading/>;
+return <div style={{...p,paddingTop:24,paddingBottom:40}}><button onClick={()=>nav("browse")} style={{...bn("g"),padding:"8px 0",gap:6,color:CL.tx2,marginBottom:16}}><I.Back/> {t("back")}</button>
+<div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:24,marginBottom:24}}><div style={{display:"flex",alignItems:mob?"flex-start":"center",gap:20,flexDirection:mob?"column":"row"}}><div style={{width:80,height:80,borderRadius:"50%",background:`linear-gradient(135deg,${CL.acL},${CL.acH}22)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:32,fontWeight:800,color:CL.ac}}>{u.nm.charAt(0)}</div><div style={{flex:1}}><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}><h2 style={{fontSize:22,fontWeight:800,margin:0}}>{u.nm}</h2>{u.vf&&<span style={bg(CL.acL,CL.ac)}>✓</span>}<span style={bg(CL.wmL,CL.wm)}>{t(u.tp)}</span></div><div style={{display:"flex",alignItems:"center",gap:12,color:CL.tx2,fontSize:13}}><I.Pin/>{u.ct}, {"تونس"}</div><Stars r={u.rt}/>{u.bio&&<p style={{fontSize:13,color:CL.tx2,margin:"8px 0 0"}}>{u.bio}</p>}</div></div></div>
+<h3 style={{fontSize:18,fontWeight:800,margin:"0 0 16px"}}>{t("listings")} ({ul.length})</h3>
+{ul.length>0?<div style={{display:"grid",gridTemplateColumns:mob?"1fr":"repeat(3,1fr)",gap:18}}>{ul.map(l=><Cd key={l.id} l={l} onClick={()=>nav("detail",{lid:l.id})}/>)}</div>:<div style={{color:CL.tx3,fontSize:14}}>{t("noListings")}</div>}</div>;}
+
+function Profile(){const{mob,usr,sAuth,logout,nav,nfy,rfr,t}=useA();const[ml,sMl]=useState([]);const[ed,sEd]=useState(false);const[ef,sEf]=useState({});
+const p=mob?{padding:"0 16px"}:{padding:"0 24px",maxWidth:600,margin:"0 auto",width:"100%"};
+useEffect(()=>{if(usr){api.ls.byUser(usr.id).then(sMl);sEf({nm:usr.nm,ph:usr.ph,bio:usr.bio||""});}},[usr]);
+if(!usr)return <div style={{...p,paddingTop:32}}><div style={{textAlign:"center",padding:"16px 0 8px",fontSize:17,fontWeight:700}}>{t("profile")}</div><div style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:16,padding:40,textAlign:"center"}}><div style={{fontSize:48,marginBottom:12}}>👤</div><div style={{fontSize:16,fontWeight:600}}>{t("guestMode")}</div><div style={{fontSize:14,color:CL.tx3,marginBottom:20}}>{t("guestSub")}</div><button onClick={()=>sAuth(true)} style={bn("p")}>{t("signIn")}</button></div></div>;
+
+return <div style={{background:CL.bg,minHeight:"100vh"}}>
+{/* Header bar */}
+<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"16px 20px",borderBottom:`1px solid ${CL.bdL}`}}>
+<div style={{width:28}}/>
+<div style={{fontSize:17,fontWeight:700}}>{t("myProfile")}</div>
+<div style={{display:"flex",gap:12}}>
+<button onClick={()=>sEd(!ed)} style={{background:"none",border:"none",cursor:"pointer",color:CL.tx2,padding:0}}><I.Edit/></button>
+<button onClick={()=>nav("settings")} style={{background:"none",border:"none",cursor:"pointer",color:CL.tx2,padding:0}}><I.Gear/></button>
+</div></div>
+
+{/* Profile card */}
+<div style={{background:CL.sf,padding:"20px 20px 16px",borderBottom:`1px solid ${CL.bdL}`}}>
+<div style={{display:"flex",alignItems:"center",gap:16}}>
+{/* Avatar */}
+<div style={{width:72,height:72,borderRadius:"50%",background:CL.sfH,border:`2px solid ${CL.bdL}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,fontWeight:800,color:CL.tx3,flexShrink:0}}>{usr.nm.charAt(0)}</div>
+{/* Name + Stats */}
+<div style={{flex:1}}>
+<div style={{fontSize:18,fontWeight:700,marginBottom:8}}>{usr.nm}</div>
+<div style={{display:"flex",gap:20}}>
+<div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:700}}>{ml.length}</div><div style={{fontSize:12,color:CL.tx3}}>{t("listings")}</div></div>
+<div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:700}}>0</div><div style={{fontSize:12,color:CL.tx3}}>Following</div></div>
+<div style={{textAlign:"center"}}><div style={{fontSize:18,fontWeight:700}}>0</div><div style={{fontSize:12,color:CL.tx3}}>Followers</div></div>
+</div></div></div>
+
+{/* Satisfaction badge */}
+{usr.rt>=4&&<div style={{display:"inline-flex",alignItems:"center",gap:6,background:"#F3EAFF",padding:"6px 14px",borderRadius:20,marginTop:14,fontSize:13,fontWeight:600,color:"#7048E8"}}><span style={{fontSize:15}}>😊</span> TOP Satisfaction</div>}
+
+{/* Account type + Member since */}
+<div style={{marginTop:12,display:"flex",flexDirection:"column",gap:6}}>
+<div style={{display:"flex",alignItems:"center",gap:8,fontSize:14,color:CL.tx2}}><I.User/> <span style={{textTransform:"capitalize"}}>{t(usr.tp)}</span></div>
+<div style={{display:"flex",alignItems:"center",gap:8,fontSize:14,color:CL.tx2}}><svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg> Active since {usr.jn}</div>
+</div></div>
+
+{/* Edit panel */}
+{ed&&<div style={{background:CL.sf,padding:20,borderBottom:`1px solid ${CL.bdL}`,animation:"fadeIn .2s"}}>
+<div style={{marginBottom:12}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:4}}>{t("name")}</label><input style={fi} value={ef.nm} onChange={e=>sEf({...ef,nm:e.target.value})}/></div>
+<div style={{marginBottom:12}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:4}}>{t("phone")}</label><input style={fi} value={ef.ph} onChange={e=>sEf({...ef,ph:e.target.value})}/></div>
+<div style={{marginBottom:12}}><label style={{display:"block",fontSize:13,fontWeight:700,color:CL.tx2,marginBottom:4}}>{t("bio")}</label><textarea style={{...fi,resize:"vertical",minHeight:60}} value={ef.bio} onChange={e=>sEf({...ef,bio:e.target.value})}/></div>
+<div style={{display:"flex",gap:10}}><button onClick={()=>api.us.upd(usr.id,ef).then(()=>api.us.get(usr.id)).then(u2=>{try{window.storage.set("fm3_s",JSON.stringify(u2));}catch(e){}sEd(false);nfy("Updated!");})} style={{...bn("p"),flex:1}}>{t("save")}</button><button onClick={()=>sEd(false)} style={{...bn("g"),flex:1}}>{t("cancel")}</button></div>
+</div>}
+
+{/* Sales overview card */}
+<div style={{padding:"12px 20px"}}>
+<div onClick={()=>nfy("Sales overview coming soon!")} style={{background:CL.sf,border:`1px solid ${CL.bd}`,borderRadius:14,padding:"16px 20px",display:"flex",alignItems:"center",gap:14,cursor:"pointer",transition:"all .15s"}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,.06)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="none"}>
+<svg width="24" height="24" fill="none" stroke={CL.tx} strokeWidth="1.5" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20M10 3v18"/></svg>
+<div style={{flex:1}}><div style={{fontSize:15,fontWeight:700}}>Sales Overview</div><div style={{fontSize:13,color:CL.tx3}}>Your earnings via our payment system</div></div>
+<I.Rt/></div></div>
+
+{/* Listings or empty state */}
+{ml.length>0?<div style={{padding:"8px 20px 20px"}}>
+{ml.map(l=>{const ct=CATS.find(c=>c.id===l.cat);return <div key={l.id} style={{background:CL.sf,border:`1px solid ${CL.bdL}`,borderRadius:14,padding:14,display:"flex",gap:14,alignItems:"center",marginBottom:8,cursor:"pointer"}} onClick={()=>nav("detail",{lid:l.id})}>
+<Img src={l.imgs?.[0]} fb={l.fb} style={{width:64,height:64,borderRadius:10,objectFit:"cover",background:CL.bdL,flexShrink:0}}/>
+<div style={{flex:1,minWidth:0}}><div style={{fontSize:14,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{l.tt}</div><div style={{fontSize:13,color:CL.ac,fontWeight:600}}>{l.pt==="free"?"Free":l.pr>0?`${l.pr.toLocaleString()} DT${l.un||""}`:""}</div><div style={{fontSize:12,color:CL.tx3}}>{ct?.icon} {l.sub} · {l.ct}</div></div>
+<button onClick={e=>{e.stopPropagation();api.ls.del(l.id).then(()=>{sMl(ml.filter(x=>x.id!==l.id));rfr();nfy("Deleted");});}} style={{...bn("g"),padding:6,color:CL.dg}}><I.Trash/></button>
+</div>;})}
+</div>
+
+/* Empty state */
+:<div style={{background:CL.sfH,padding:"48px 20px 60px",textAlign:"center"}}>
+<div style={{fontSize:64,marginBottom:4}}>📦</div>
+<div style={{fontSize:20,fontWeight:700,marginBottom:8}}>Got treasures to share?</div>
+<div style={{fontSize:14,color:CL.tx3,maxWidth:320,margin:"0 auto 24px",lineHeight:1.5}}>Start listing your agricultural products and keep track of everything here.</div>
+<button onClick={()=>nav("create")} style={{...bn("p"),padding:"14px 32px",fontSize:15,borderRadius:28}}>{t("createListing")}</button>
+</div>}
+
+{/* Footer: total listings + sign out */}
+<div style={{padding:"16px 20px",borderTop:`1px solid ${CL.bdL}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+<span style={{fontSize:13,color:CL.tx3}}>{ml.length} {t("listings")} total</span>
+<button onClick={logout} style={{...bn("g"),color:CL.dg,fontSize:13,padding:"6px 12px"}}><I.Out/> {t("signOut")}</button>
+</div>
+</div>;}
+
+// NAV
+function Side(){const{pg,nav,usr,sAuth,t}=useA();const items=[{id:"browse",lb:t("browse"),ic:<I.Search/>},{id:"create",lb:t("newListing"),ic:<I.Plus/>},{id:"chat",lb:t("messages"),ic:<I.Chat/>},{id:"favs",lb:t("favorites"),ic:<I.Heart/>},{id:"pricing",lb:t("pricing"),ic:<I.Crown/>},{id:"profile",lb:t("profile"),ic:<I.User/>},{id:"settings",lb:t("settings"),ic:<I.Gear/>},...(usr?.role==="admin"?[{id:"admin",lb:t("admin"),ic:<I.Shield/>}]:[])];
+return <div style={{position:"fixed",left:0,top:0,bottom:0,width:250,background:CL.sf,borderRight:`1px solid ${CL.bd}`,display:"flex",flexDirection:"column",zIndex:100,padding:"24px 0"}}>
+<div style={{padding:"0 24px 28px",fontSize:22,fontWeight:800,color:CL.acD,display:"flex",alignItems:"center",gap:10}}><span style={{fontSize:28}}>🌾</span> فلاحة ماركت</div>
+<div style={{flex:1,display:"flex",flexDirection:"column",gap:2,padding:"0 12px",overflow:"auto"}}>{items.map(i=>{const active=pg===i.id||(i.id==="browse"&&(pg==="detail"||pg==="userP"||pg==="browse"));return <button key={i.id} onClick={()=>nav(i.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"11px 16px",borderRadius:12,cursor:"pointer",fontSize:14,fontWeight:active?700:500,color:active?CL.ac:CL.tx2,background:active?CL.acL:"transparent",border:"none",width:"100%",textAlign:"left",fontFamily:"inherit",transition:"all .15s"}}>{i.ic} {i.lb}</button>;})}</div>
+{usr?<div style={{padding:"16px 24px",borderTop:`1px solid ${CL.bd}`}}><div style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}} onClick={()=>nav("profile")}><div style={{width:34,height:34,borderRadius:"50%",background:`linear-gradient(135deg,${CL.acL},${CL.acH}22)`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:CL.ac}}>{usr.nm.charAt(0)}</div><div><div style={{fontSize:13,fontWeight:700}}>{usr.nm}</div><div style={{fontSize:11,color:CL.tx3,textTransform:"capitalize"}}>{t(usr.tp)}</div></div></div></div>
+:<div style={{padding:"16px 24px",borderTop:`1px solid ${CL.bd}`}}><button onClick={()=>sAuth(true)} style={{...bn("p"),width:"100%",fontSize:13}}>{t("signIn")}</button></div>}
+</div>;}
+
+function Tabs2(){const{pg,nav,t}=useA();const items=[{id:"browse",lb:t("browse"),ic:<I.Search/>},{id:"create",lb:t("newListing").split(" ")[0],ic:<I.Plus/>},{id:"favs",lb:t("favorites"),ic:<I.Heart/>},{id:"profile",lb:t("profile"),ic:<I.User/>},{id:"settings",lb:t("settings"),ic:<I.Gear/>}];
+return <div style={{position:"fixed",bottom:0,left:0,right:0,background:CL.sf,borderTop:`1px solid ${CL.bd}`,display:"flex",justifyContent:"space-around",padding:"8px 0 max(8px,env(safe-area-inset-bottom))",zIndex:100}}>
+{items.map(i=><button key={i.id} onClick={()=>nav(i.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,border:"none",background:"none",cursor:"pointer",padding:"4px 8px",color:pg===i.id?CL.ac:CL.tx3,fontSize:10,fontWeight:pg===i.id?700:400,transition:"color .15s"}}>{i.ic}<span>{i.lb}</span></button>)}</div>;}
+
+function Onboard(){const[show,sShow]=useState(false);const[step,sStep]=useState(0);
+useEffect(()=>{try{window.storage.get("fm3_ob").then(r=>{if(!r)sShow(true);}).catch(()=>sShow(true));}catch(e){sShow(true);}},[]);
+const dismiss=()=>{sShow(false);try{window.storage.set("fm3_ob","1");}catch(e){}};
+const steps=[{icon:"🌾",title:"Browse & Discover",desc:"Find agricultural products, services, labor and livestock across all 24 governorates of Tunisia."},{icon:"📱",title:"Contact Sellers",desc:"Call, WhatsApp, or message sellers directly. Make offers on negotiable listings."},{icon:"📝",title:"List & Sell",desc:"Create listings in minutes. Set your price type, add photos, and reach buyers across Tunisia."}];
+if(!show)return null;
+return <div style={{position:"fixed",inset:0,background:CL.ov,display:"flex",alignItems:"center",justifyContent:"center",zIndex:2000,padding:16,animation:"fadeIn .3s"}}>
+<div style={{background:CL.sf,borderRadius:24,width:"100%",maxWidth:420,padding:"40px 32px",textAlign:"center",animation:"scaleIn .3s"}}>
+<div style={{fontSize:56,marginBottom:16}}>{steps[step].icon}</div>
+<h2 style={{fontSize:22,fontWeight:800,margin:"0 0 8px"}}>{steps[step].title}</h2>
+<p style={{fontSize:14,color:CL.tx2,lineHeight:1.6,margin:"0 0 32px",maxWidth:300,marginLeft:"auto",marginRight:"auto"}}>{steps[step].desc}</p>
+<div style={{display:"flex",justifyContent:"center",gap:6,marginBottom:24}}>{steps.map((_,i)=><div key={i} style={{width:i===step?24:8,height:8,borderRadius:4,background:i===step?CL.ac:CL.bdL,transition:"all .3s"}}/>)}</div>
+<div style={{display:"flex",gap:10,justifyContent:"center"}}>
+{step>0&&<button onClick={()=>sStep(step-1)} style={{...bn("g"),padding:"10px 20px"}}>Back</button>}
+{step<2?<button onClick={()=>sStep(step+1)} style={{...bn("p"),padding:"10px 32px"}}>Next</button>
+:<button onClick={dismiss} style={{...bn("p"),padding:"10px 32px"}}>Get Started</button>}
+</div>
+<button onClick={dismiss} style={{background:"none",border:"none",color:CL.tx3,fontSize:13,cursor:"pointer",marginTop:16,fontFamily:"inherit"}}>Skip</button>
+</div></div>;}
+
+function Shell(){const{pg,mob,dir}=useA();
+const P={browse:Browse,detail:Detail,create:Create,profile:Profile,userP:UserPg,chat:ChatPg,admin:AdminPg,settings:Settings,favs:FavsPage,pricing:PricingPage}[pg]||Browse;
+return <div dir={dir} style={{fontFamily:"'DM Sans','Segoe UI',sans-serif",background:CL.bg,color:CL.tx,minHeight:"100vh",display:"flex",flexDirection:"column"}}>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}}@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}@keyframes scaleIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}@keyframes spin{to{transform:rotate(360deg)}}@keyframes slideIn{from{opacity:0;transform:translate(-50%,-12px)}to{opacity:1;transform:translate(-50%,0)}}*{scrollbar-width:thin;scrollbar-color:${CL.bd} transparent;}`}</style>
+{!mob&&<Side/>}<div style={mob?{flex:1,paddingBottom:72}:{marginLeft:250,flex:1,minHeight:"100vh"}}><P/></div>{mob&&<Tabs2/>}<Auth/><Toast/><Onboard/>
+</div>;}
 
 export default function App(){return <Prov><Shell/></Prov>;}
