@@ -55,4 +55,4 @@ const api={
 
 export { T, GOVS, CATS, TX_T, U_T, UNITS, D_U, D_L, D_R, D_M, api, mkFb };
 
-export default function App(){return <div>FellahaMarket</div>;}
+export default function App(){return <Prov><Shell/></Prov>;}

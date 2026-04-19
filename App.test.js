@@ -60,10 +60,7 @@ describe("T – translations", () => {
   test("no locale has empty-string values", () => {
     for (const locale of ["en", "fr", "ar"]) {
       for (const [key, val] of Object.entries(T[locale])) {
-        expect(
-          val,
-          `T.${locale}.${key} should not be empty`
-        ).not.toBe("");
+        expect(val).not.toBe("");
       }
     }
   });
